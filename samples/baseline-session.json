@@ -1,0 +1,18 @@
+{
+  "session_id": "session_sample_v2",
+  "protocol_id": "baseline_v2",
+  "protocol_version": "2026-07-08-v2",
+  "calibration": {
+    "baseline_adc": [41, 46, 39, 44, 48, 43],
+    "press_threshold_adc": [320, 330, 315, 335, 340, 325],
+    "release_threshold_adc": [180, 185, 176, 190, 188, 182]
+  },
+  "trials": [
+    {"event":"trial","session_id":"session_sample_v2","protocol_id":"baseline_v2","trial":1,"trial_phase":"practice","included_in_analysis":false,"zone":0,"zone_name":"LF","stim_class":"go","stim":"RED","pressed_zone":0,"pressed_zones":[0],"rt_ms":430,"result":"go_correct","trigger_adc":720,"post_contact_peak_adc":1810},
+    {"event":"trial","session_id":"session_sample_v2","protocol_id":"baseline_v2","trial":2,"trial_phase":"recorded","included_in_analysis":true,"zone":1,"zone_name":"RF","stim_class":"go","stim":"RED","pressed_zone":1,"pressed_zones":[1],"rt_ms":412,"result":"go_correct","trigger_adc":690,"post_contact_peak_adc":1760},
+    {"event":"trial","session_id":"session_sample_v2","protocol_id":"baseline_v2","trial":3,"trial_phase":"recorded","included_in_analysis":true,"zone":2,"zone_name":"LR","stim_class":"go","stim":"RED","pressed_zone":3,"pressed_zones":[3],"rt_ms":501,"result":"wrong_zone","trigger_adc":760,"post_contact_peak_adc":1905},
+    {"event":"trial","session_id":"session_sample_v2","protocol_id":"baseline_v2","trial":4,"trial_phase":"recorded","included_in_analysis":true,"zone":4,"zone_name":"LL","stim_class":"go","stim":"RED","pressed_zone":4,"pressed_zones":[4],"rt_ms":455,"result":"go_correct","trigger_adc":735,"post_contact_peak_adc":2011},
+    {"event":"trial","session_id":"session_sample_v2","protocol_id":"baseline_v2","trial":5,"trial_phase":"recorded","included_in_analysis":true,"zone":5,"zone_name":"RL","stim_class":"go","stim":"RED","pressed_zone":null,"pressed_zones":[],"rt_ms":null,"result":"miss","trigger_adc":null,"post_contact_peak_adc":null},
+    {"event":"trial","session_id":"session_sample_v2","protocol_id":"baseline_v2","trial":6,"trial_phase":"recorded","included_in_analysis":false,"zone":0,"zone_name":"LF","stim_class":"go","stim":"RED","pressed_zone":0,"pressed_zones":[0],"rt_ms":null,"result":"false_start","trigger_adc":640,"post_contact_peak_adc":640}
+  ]
+}

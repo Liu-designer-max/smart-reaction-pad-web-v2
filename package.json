@@ -1,0 +1,10 @@
+{
+  "name": "smart-reaction-pad-web-v2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:browser": "node tools/build-browser-bundle.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

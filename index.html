@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101820">
+    <title>Smart Reaction Pad for Sports Rehabilitation & Return-to-Play Testing</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Biomedical Engineering Wearable Device Demo</p>
+        <p class="group-mark">UoD &amp; NEU Group 1-B</p>
+        <h1>Smart Reaction Pad <span>for Sports Rehabilitation &amp; Return-to-Play Testing</span></h1>
+      </div>
+      <div class="status-pill" id="connectionStatus" data-state="offline">
+        <span></span>
+        <strong>Disconnected</strong>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="control-panel" aria-label="Session controls">
+        <div class="panel-header">
+          <div>
+            <h2>Session Control</h2>
+            <p>BLE-linked stepping test for rehabilitation and return-to-play review</p>
+          </div>
+          <div class="state-chip" id="uiState">DISCONNECTED</div>
+        </div>
+
+        <div class="control-grid">
+          <label>
+            Test mode
+            <select id="protocolSelect"></select>
+          </label>
+          <label>
+            Participant ID
+            <input id="participantInput" type="text" value="anonymous-001" autocomplete="off">
+          </label>
+          <label>
+            Injured side
+            <select id="injuredSideInput">
+              <option value="unknown">Unknown / not recorded</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+              <option value="none">No injury</option>
+            </select>
+          </label>
+          <label>
+            Footwear
+            <select id="footwearInput">
+              <option value="not_recorded">Not recorded</option>
+              <option value="barefoot">Barefoot</option>
+              <option value="socks">Socks</option>
+              <option value="sport_shoes">Sport shoes</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="connectButton" class="primary">Connect BLE</button>
+          <button id="calibrateButton">Calibrate</button>
+          <button id="startButton">Start Test</button>
+          <button id="stopButton">Stop</button>
+          <button id="demoButton">Run Demo</button>
+        </div>
+
+        <p class="hint" id="bleHint">
+          Red target = step. Green target = hold. Use the practice trials before recorded testing.
+        </p>
+      </section>
+
+      <section class="metrics-strip" aria-label="Live metrics">
+        <div class="metric">
+          <span>Timer</span>
+          <strong id="sessionTimer">00:00</strong>
+        </div>
+        <div class="metric">
+          <span>Trials</span>
+          <strong id="trialCounter">0 / 0</strong>
+        </div>
+        <div class="metric">
+          <span>Last response</span>
+          <strong id="lastSrt">-- ms</strong>
+        </div>
+        <div class="metric">
+          <span>FSR signal</span>
+          <strong id="triggerSignal">--</strong>
+        </div>
+      </section>
+
+      <section class="workbench">
+        <div class="mat-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Mat View</h2>
+              <p>Six FSR zones mapped to the physical pad. The highlight shows the latest trial.</p>
+            </div>
+          </div>
+
+          <div class="mat" id="matView" aria-label="Most recent Smart Reaction Pad trial">
+            <div class="zone" data-zone="0"><span>LF</span><small>Left front</small></div>
+            <div class="zone" data-zone="1"><span>RF</span><small>Right front</small></div>
+            <div class="zone" data-zone="4"><span>LL</span><small>Left lateral</small></div>
+            <div class="center-node">
+              <strong>RGB</strong>
+              <span>Status LED</span>
+            </div>
+            <div class="zone" data-zone="5"><span>RL</span><small>Right lateral</small></div>
+            <div class="zone" data-zone="2"><span>LR</span><small>Left rear</small></div>
+            <div class="zone" data-zone="3"><span>RR</span><small>Right rear</small></div>
+          </div>
+        </div>
+
+        <div class="event-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Live Trial Log</h2>
+              <p>Results from the ESP32 or demo mode</p>
+            </div>
+            <div class="button-row compact">
+              <button id="exportJsonButton">JSON</button>
+              <button id="exportCsvButton">CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Part</th>
+                  <th>Target</th>
+                  <th>Light</th>
+                  <th>Pressed</th>
+                  <th>Response</th>
+                  <th>Result</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="trialTable">
+                <tr><td colspan="8" class="empty">No trials yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="analysis-grid" aria-label="Biomedical analysis">
+        <article class="analysis-card">
+          <h3>Stepping Response Time</h3>
+          <div class="score" id="srtSummary">-- ms</div>
+          <p id="srtInterpretation">Time from target light to foot contact. It includes seeing, deciding, moving, and stepping.</p>
+          <canvas id="srtChart" width="600" height="240"></canvas>
+        </article>
+
+        <article class="analysis-card">
+          <h3>Left vs Right Targets</h3>
+          <div class="score" id="spatialScore">--</div>
+          <p id="spatialInterpretation">Compares left-side and right-side targets. It does not identify which leg was used.</p>
+          <div class="bar-meter"><span id="spatialBar"></span></div>
+        </article>
+
+        <article class="analysis-card">
+          <h3>Go/No-Go Control</h3>
+          <div class="score" id="inhibitionScore">--</div>
+          <p id="inhibitionInterpretation">Shows stepping accuracy for red Go trials and holding accuracy for green No-Go trials.</p>
+          <div class="split-stats">
+            <div><span>False steps</span><strong id="commissionRate">--</strong></div>
+            <div><span>Correct holds</span><strong id="rejectionRate">--</strong></div>
+          </div>
+        </article>
+
+        <article class="analysis-card">
+          <h3>Long-Run Change</h3>
+          <div class="score" id="driftScore">--</div>
+          <p id="driftInterpretation">Shows whether responses slow down during a longer run. This is not a fatigue diagnosis by itself.</p>
+          <div id="zoneHeatmap" class="zone-heatmap"></div>
+        </article>
+      </section>
+
+      <section class="reference-panel">
+        <h2>Measurement Notes</h2>
+        <ul>
+          <li><strong>Response time:</strong> target light to first FSR contact. It is not pure nerve reaction time.</li>
+          <li><strong>FSR signal:</strong> ADC values show relative sensor level, not force, body weight, or ground reaction force.</li>
+          <li><strong>Side comparison:</strong> left and right mean target position. The pad does not automatically know which leg was used.</li>
+          <li><strong>Go/No-Go:</strong> red trials test stepping response. Green trials test the ability to hold back a step.</li>
+          <li><strong>Use:</strong> this is an educational prototype for RTP discussion, not a clinical clearance tool.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="app.bundle.js" defer></script>
+  </body>
+</html>
