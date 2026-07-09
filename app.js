@@ -140,6 +140,10 @@ function isRecordedTrial(trial) {
   return trial?.trial_phase === "recorded" && trial.included_in_analysis === true;
 }
 
+function isPracticeTrial(trial) {
+  return trial?.trial_phase === "practice";
+}
+
 function plannedRecordedCount(session = app.currentSession) {
   return session?.trial_plan?.filter(isRecordedTrial).length || 0;
 }
@@ -148,9 +152,31 @@ function completedRecordedCount(session = app.currentSession) {
   return session?.trials?.filter(isRecordedTrial).length || 0;
 }
 
+function plannedPracticeCount(session = app.currentSession) {
+  return session?.trial_plan?.filter(isPracticeTrial).length || 0;
+}
+
+function completedPracticeCount(session = app.currentSession) {
+  return session?.trials?.filter(isPracticeTrial).length || 0;
+}
+
+function trialKey(trial) {
+  return [
+    trial?.session_id || "local",
+    trial?.trial_phase || "phase",
+    Number.isFinite(Number(trial?.trial)) ? Number(trial.trial) : "trial",
+  ].join(":");
+}
+
+function hasTrial(session, trial) {
+  const key = trialKey(trial);
+  return session?.trials?.some((existing) => trialKey(existing) === key);
+}
+
 function canAcceptTrial(session, trial) {
   if (!session || !trial) return false;
   if (trial.session_id && trial.session_id !== session.session_id) return false;
+  if (hasTrial(session, trial)) return false;
   if (!isRecordedTrial(trial)) return true;
   return completedRecordedCount(session) < plannedRecordedCount(session);
 }
@@ -516,7 +542,13 @@ function renderCounters() {
   const last = trials.at(-1);
   const recordedPlan = plannedRecordedCount();
   const recorded = Math.min(completedRecordedCount(), recordedPlan);
-  els.trialCounter.textContent = `${recorded} / ${recordedPlan}`;
+  const practicePlan = plannedPracticeCount();
+  const practice = Math.min(completedPracticeCount(), practicePlan);
+  if (recorded === 0 && practice > 0 && practicePlan > 0) {
+    els.trialCounter.textContent = `Practice ${practice} / ${practicePlan}`;
+  } else {
+    els.trialCounter.textContent = `${recorded} / ${recordedPlan}`;
+  }
   els.lastSrt.textContent = last && Number.isFinite(last.rt_ms) ? formatMs(last.rt_ms) : "-- ms";
   els.triggerSignal.textContent = last?.trigger_adc ? `${last.trigger_adc} ADC` : "--";
 }
