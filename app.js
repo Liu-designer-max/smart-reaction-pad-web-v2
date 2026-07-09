@@ -136,6 +136,25 @@ function currentTrials() {
   return app.currentSession?.trials || [];
 }
 
+function isRecordedTrial(trial) {
+  return trial?.trial_phase === "recorded" && trial.included_in_analysis === true;
+}
+
+function plannedRecordedCount(session = app.currentSession) {
+  return session?.trial_plan?.filter(isRecordedTrial).length || 0;
+}
+
+function completedRecordedCount(session = app.currentSession) {
+  return session?.trials?.filter(isRecordedTrial).length || 0;
+}
+
+function canAcceptTrial(session, trial) {
+  if (!session || !trial) return false;
+  if (trial.session_id && trial.session_id !== session.session_id) return false;
+  if (!isRecordedTrial(trial)) return true;
+  return completedRecordedCount(session) < plannedRecordedCount(session);
+}
+
 function populateProtocols() {
   els.protocolSelect.innerHTML = Object.values(PROTOCOLS)
     .map((protocol) => `<option value="${protocol.id}">${protocol.label} - ${protocol.optionText}</option>`)
@@ -241,6 +260,11 @@ function handleBleEvent(event) {
       nextTrial: app.currentSession.trials.length + 1,
       total: app.currentSession.trial_plan.length,
     });
+    if (!canAcceptTrial(app.currentSession, trial)) {
+      setHint("Extra trial event ignored because this session is already complete.");
+      render();
+      return;
+    }
     app.currentSession.trials.push(trial);
     flashLastTrial(trial);
     render();
@@ -398,6 +422,7 @@ function demoTrialFromPlan(planTrial, session, index) {
 
 function runDemo() {
   window.clearInterval(app.demoId);
+  app.demoId = null;
   app.demoActive = true;
   app.calibrated = true;
   app.calibration = {
@@ -413,23 +438,32 @@ function runDemo() {
   setUiState(UI_STATES.RUNNING);
   setHint("Demo mode is running sample trials without hardware.");
   let index = 0;
+  const finishDemo = () => {
+    window.clearInterval(app.demoId);
+    app.demoId = null;
+    app.demoActive = false;
+    session.completed = true;
+    session.completed_at = new Date().toISOString();
+    stopTimer();
+    setUiState(UI_STATES.COMPLETE);
+    setHint("Demo complete. You can export the results as JSON or CSV.");
+    render();
+  };
   app.demoId = window.setInterval(() => {
+    if (index >= session.trial_plan.length) {
+      finishDemo();
+      return;
+    }
     const planTrial = session.trial_plan[index];
     const trial = demoTrialFromPlan(planTrial, session, index);
-    session.trials.push(trial);
-    flashLastTrial(trial);
+    if (canAcceptTrial(session, trial)) {
+      session.trials.push(trial);
+      flashLastTrial(trial);
+    }
     index += 1;
     render();
     if (index >= session.trial_plan.length) {
-      window.clearInterval(app.demoId);
-      app.demoId = null;
-      app.demoActive = false;
-      session.completed = true;
-      session.completed_at = new Date().toISOString();
-      stopTimer();
-      setUiState(UI_STATES.COMPLETE);
-      setHint("Demo complete. You can export the results as JSON or CSV.");
-      render();
+      finishDemo();
     }
   }, 360);
 }
@@ -480,8 +514,8 @@ function labelForLight(trial) {
 function renderCounters() {
   const trials = currentTrials();
   const last = trials.at(-1);
-  const recordedPlan = app.currentSession?.trial_plan?.filter((trial) => trial.included_in_analysis).length || 0;
-  const recorded = trials.filter((trial) => trial.included_in_analysis !== false).length;
+  const recordedPlan = plannedRecordedCount();
+  const recorded = Math.min(completedRecordedCount(), recordedPlan);
   els.trialCounter.textContent = `${recorded} / ${recordedPlan}`;
   els.lastSrt.textContent = last && Number.isFinite(last.rt_ms) ? formatMs(last.rt_ms) : "-- ms";
   els.triggerSignal.textContent = last?.trigger_adc ? `${last.trigger_adc} ADC` : "--";
