@@ -187,21 +187,62 @@ function populateProtocols() {
     .join("");
 }
 
+function syncProtocolFromDevice(protocolId, { showHint = false } = {}) {
+  if (!protocolId || !PROTOCOLS[protocolId]) return false;
+  const changed = els.protocolSelect.value !== protocolId;
+  els.protocolSelect.value = protocolId;
+  if (changed && showHint) {
+    setHint(`Device mode changed to ${getProtocol(protocolId).label}.`);
+  }
+  return changed;
+}
+
 function refreshAssessmentMeta() {
   app.assessment.participant.anonymous_id = els.participantInput.value.trim() || "anonymous-001";
   app.assessment.participant.injured_side = els.injuredSideInput.value;
   app.assessment.conditions.footwear = els.footwearInput.value;
 }
 
-function createNewSession() {
+function createNewSession(protocolId = els.protocolSelect.value, options = {}) {
   refreshAssessmentMeta();
-  const protocolId = els.protocolSelect.value;
+  syncProtocolFromDevice(protocolId);
   const trialPlan = generateTrialPlan(protocolId, `${Date.now()}:${app.assessment.assessment_id}`);
   const session = createSession(protocolId, { calibration: app.calibration, trial_plan: trialPlan });
+  if (options.session_id) session.session_id = options.session_id;
   session.assessment_id = app.assessment.assessment_id;
   app.currentSession = session;
   app.assessment.sessions.push(session);
   return session;
+}
+
+function ensureSessionForStarted(event) {
+  const protocolId = PROTOCOLS[event.protocol_id] ? event.protocol_id : els.protocolSelect.value;
+  syncProtocolFromDevice(protocolId);
+  const needsNewSession =
+    !app.currentSession ||
+    app.currentSession.completed ||
+    app.currentSession.stop_reason ||
+    app.currentSession.protocol_id !== protocolId ||
+    (event.session_id && app.currentSession.session_id !== event.session_id);
+  if (needsNewSession) {
+    return createNewSession(protocolId, { session_id: event.session_id });
+  }
+  if (event.session_id) app.currentSession.session_id = event.session_id;
+  return app.currentSession;
+}
+
+function ensureSessionForTrial(event) {
+  const protocolId = PROTOCOLS[event.protocol_id] ? event.protocol_id : els.protocolSelect.value;
+  const needsNewSession =
+    !app.currentSession ||
+    app.currentSession.completed ||
+    app.currentSession.stop_reason ||
+    app.currentSession.protocol_id !== protocolId ||
+    (event.session_id && app.currentSession.session_id !== event.session_id);
+  if (needsNewSession) {
+    return createNewSession(protocolId, { session_id: event.session_id });
+  }
+  return app.currentSession;
 }
 
 function clearZones() {
@@ -255,7 +296,18 @@ function handleBleEvent(event) {
   resolveAck(event);
 
   if (event.event === "status") {
+    syncProtocolFromDevice(event.protocol_id, { showHint: app.uiState !== UI_STATES.RUNNING });
+    app.calibrated = event.calibrated === true || event.calibrated === "true" || app.calibrated;
+    if (app.connected && app.calibrated && ["IDLE", "COMPLETE", "STOPPED", "ERROR"].includes(event.state)) {
+      setUiState(app.currentSession?.completed ? UI_STATES.COMPLETE : UI_STATES.READY);
+    }
     if (event.state === "READY" && app.connected) setUiState(app.calibrated ? UI_STATES.READY : UI_STATES.CONNECTED);
+    render();
+    return;
+  }
+
+  if (event.event === "mode_ack") {
+    syncProtocolFromDevice(event.protocol_id, { showHint: true });
     render();
     return;
   }
@@ -270,7 +322,9 @@ function handleBleEvent(event) {
   }
 
   if (event.event === "started") {
-    app.currentSession.started_at = new Date().toISOString();
+    const session = ensureSessionForStarted(event);
+    session.started_at = new Date().toISOString();
+    app.calibrated = true;
     beginTimer();
     setUiState(UI_STATES.RUNNING);
     setHint("Test running. Red means step. Green means hold.");
@@ -279,7 +333,8 @@ function handleBleEvent(event) {
   }
 
   if (event.event === "trial") {
-    if (!app.currentSession) createNewSession();
+    if (event.protocol_id) syncProtocolFromDevice(event.protocol_id);
+    ensureSessionForTrial(event);
     const trial = normalizeTrial(event, {
       session_id: app.currentSession.session_id,
       protocol_id: app.currentSession.protocol_id,
